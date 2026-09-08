@@ -791,12 +791,65 @@ let currentQuestion = 0;
 let answers = new Array(QUESTIONS.length).fill(null);
 let categoryScores = {};
 let overallIndex = 0;
+let currentScreenId = 'screen-start';
+
+/* ============ PROGRESS PERSISTENCE ============ */
+const STORAGE_KEY = 'navigator-resheniya-progress-v1';
+
+function saveProgress(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      screen: currentScreenId === 'screen-analyzing' ? 'screen-quiz' : currentScreenId,
+      currentQuestion: currentQuestion,
+      answers: answers,
+      categoryScores: categoryScores,
+      overallIndex: overallIndex
+    }));
+  }catch(e){}
+}
+
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const saved = JSON.parse(raw);
+    if(!saved || typeof saved !== 'object') return null;
+    return saved;
+  }catch(e){ return null; }
+}
+
+function clearProgress(){
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+}
+
+function restoreProgress(){
+  const saved = loadProgress();
+  if(!saved) return;
+  const validAnswers = Array.isArray(saved.answers) && saved.answers.length === QUESTIONS.length;
+  if(!validAnswers) return;
+
+  answers = saved.answers;
+  currentQuestion = typeof saved.currentQuestion === 'number' ? saved.currentQuestion : 0;
+
+  if(saved.screen === 'screen-results' && saved.categoryScores && typeof saved.overallIndex === 'number'){
+    categoryScores = saved.categoryScores;
+    overallIndex = saved.overallIndex;
+    renderResults();
+    showScreen('screen-results');
+  } else if(saved.screen === 'screen-quiz'){
+    currentQuestion = Math.max(0, Math.min(currentQuestion, QUESTIONS.length - 1));
+    showScreen('screen-quiz');
+    renderQuestion();
+  }
+}
 
 /* ============ SCREEN NAV ============ */
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   window.scrollTo({top:0, behavior:'smooth'});
+  currentScreenId = id;
+  saveProgress();
 }
 
 function goToIntro(){ showScreen('screen-intro'); }
@@ -834,6 +887,7 @@ function renderQuestion(){
 function selectOption(i){
   answers[currentQuestion] = i;
   renderQuestion();
+  saveProgress();
 }
 
 function goNext(){
@@ -1057,8 +1111,11 @@ function resetAll(){
   answers = new Array(QUESTIONS.length).fill(null);
   categoryScores = {};
   overallIndex = 0;
+  clearProgress();
   showScreen('screen-start');
 }
+
+restoreProgress();
 </script>
 </body>
 </html>

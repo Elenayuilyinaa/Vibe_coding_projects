@@ -442,6 +442,47 @@
   };
 
   /* =========================================================
+     СОХРАНЕНИЕ ПРОГРЕССА
+  ========================================================= */
+
+  var STORAGE_KEY = 'navigator-progress-v1';
+
+  function saveProgress(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        screen: state.screen === 'analysis' ? 'question' : state.screen,
+        qIndex: state.qIndex,
+        answers: state.answers,
+        checklist: state.checklist,
+        mapAnswers: state.mapAnswers,
+        results: state.results
+      }));
+    }catch(e){}
+  }
+
+  function loadProgress(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      var saved = JSON.parse(raw);
+      if(!saved || typeof saved !== 'object') return;
+      if(saved.screen === 'intro' || saved.screen === 'question' || saved.screen === 'result'){
+        state.screen = saved.screen;
+      }
+      state.qIndex = typeof saved.qIndex === 'number' ? saved.qIndex : 0;
+      state.answers = saved.answers || {};
+      state.checklist = saved.checklist || {};
+      state.mapAnswers = saved.mapAnswers || {};
+      state.results = saved.results || null;
+      if(state.screen === 'result' && !state.results) state.screen = 'start';
+    }catch(e){}
+  }
+
+  function clearProgress(){
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  }
+
+  /* =========================================================
      УТИЛИТЫ
   ========================================================= */
 
@@ -717,6 +758,7 @@
     void stage.offsetWidth;
     stage.classList.add('screen');
     window.scrollTo(0,0);
+    if(state.screen !== 'analysis') saveProgress();
   }
 
   function renderModal(){
@@ -839,6 +881,7 @@
     state.qIndex = 0;
     state.modal = null;
     state.screen = 'start';
+    clearProgress();
     renderModal();
     render();
   }
@@ -869,6 +912,7 @@
     card.setAttribute('aria-pressed','true');
     var nextBtn = document.getElementById('nextBtn');
     if(nextBtn) nextBtn.disabled = false;
+    saveProgress();
   }
 
   function toggleChecklist(idx, el){
@@ -878,6 +922,7 @@
     el.setAttribute('aria-pressed', checked ? 'true' : 'false');
     var box = el.querySelector('.checklist-box');
     if(box) box.textContent = checked ? '✓' : '';
+    saveProgress();
   }
 
   /* =========================================================
@@ -914,6 +959,7 @@
   document.addEventListener('input', function(e){
     if(e.target && e.target.matches && e.target.matches('[data-map-field]')){
       state.mapAnswers[e.target.getAttribute('data-map-field')] = e.target.value;
+      saveProgress();
     }
   });
 
@@ -925,8 +971,10 @@
      СТАРТ
   ========================================================= */
 
+  loadProgress();
   renderModal();
   render();
+  if(state.screen === 'result') requestAnimationFrame(startResultAnimations);
 
 })();
 </script>
